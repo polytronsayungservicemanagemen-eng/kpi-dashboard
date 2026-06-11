@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPI Dashboard — Matthew Darmawan B.S. 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --surface2: #f0efeb;
+    --border: #e3e2dc;
+    --text: #1a1a18;
+    --text2: #6b6b67;
+    --text3: #a0a09b;
+    --blue: #1a56db;
+    --blue-light: #e8f0fe;
+    --green: #0e7a4a;
+    --green-light: #e6f4ed;
+    --amber: #92510a;
+    --amber-light: #fef3e2;
+    --red: #b91c1c;
+    --red-light: #fef2f2;
+    --accent: #1a56db;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; color: var(--text); font-size: 14px; min-height: 100vh; }
+  
+  /* Layout */
+  .app { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+  
+  /* Header */
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--blue-light); color: var(--blue); font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 2px solid #c7d8fd; }
+  .header-name { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1.2; }
+  .header-role { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .header-right { text-align: right; }
+  .overall-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .overall-score { font-size: 32px; font-weight: 800; color: var(--text); line-height: 1; }
+  .overall-bar { width: 160px; height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; margin: 6px 0 0 auto; }
+  .overall-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width 1s ease; }
+
+  /* Config panel */
+  .config-panel { background: var(--blue-light); border: 1px solid #c7d8fd; border-radius: var(--radius); padding: 16px 20px; margin-bottom: 24px; }
+  .config-title { font-size: 13px; font-weight: 600; color: var(--blue); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
+  .config-item { display: flex; flex-direction: column; gap: 4px; }
+  .config-label { font-size: 11px; color: var(--text2); font-weight: 500; }
+  .config-row { display: flex; gap: 6px; align-items: center; }
+  .config-input { flex: 1; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; background: var(--surface); color: var(--text); outline: none; font-family: monospace; }
+  .config-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,86,219,0.1); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green { background: #0e7a4a; }
+  .dot-red { background: #b91c1c; }
+  .dot-gray { background: #a0a09b; }
+  .dot-loading { background: #92510a; animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .btn-load { padding: 7px 16px; background: var(--blue); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+  .btn-load:hover { background: #1447b5; }
+  .btn-load:active { transform: scale(0.98); }
+
+  /* Metrics */
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .metric-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .metric-value { font-size: 26px; font-weight: 800; line-height: 1; }
+  .metric-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .c-blue { color: var(--blue); }
+  .c-green { color: var(--green); }
+  .c-amber { color: var(--amber); }
+  .c-red { color: var(--red); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 0; flex-wrap: wrap; }
+  .tab-btn { padding: 8px 16px; font-size: 13px; font-weight: 500; color: var(--text2); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; margin-bottom: -1px; transition: all 0.15s; white-space: nowrap; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th { text-align: left; padding: 8px 10px; color: var(--text2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  .data-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr.group-row td { background: var(--surface2); font-weight: 600; font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 10px; }
+  .data-table tr:hover:not(.group-row) td { background: #fafaf8; }
+
+  /* Badge */
+  .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge-green { background: var(--green-light); color: var(--green); }
+  .badge-amber { background: var(--amber-light); color: var(--amber); }
+  .badge-red { background: var(--red-light); color: var(--red); }
+  .badge-blue { background: var(--blue-light); color: var(--blue); }
+  .badge-gray { background: var(--surface2); color: var(--text2); }
+
+  /* Progress */
+  .prog-wrap { display: flex; align-items: center; gap: 8px; }
+  .prog-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; min-width: 60px; }
+  .prog-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+  .prog-pct { font-size: 12px; font-weight: 600; min-width: 40px; }
+
+  /* Chart */
+  .chart-wrap { position: relative; width: 100%; }
+
+  /* Complaint cards */
+  .complaint-item { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 8px; }
+  .complaint-item:hover { border-color: #c7d8fd; background: #fafcff; }
+  .complaint-title-text { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+  .complaint-meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--text2); }
+  .complaint-hasil { font-size: 12px; color: var(--text2); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+
+  /* Improvement item */
+  .imp-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 6px; }
+  .imp-num { width: 24px; height: 24px; border-radius: 50%; background: var(--blue-light); color: var(--blue); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .imp-body { flex: 1; }
+  .imp-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .imp-meta { font-size: 11px; color: var(--text2); margin-top: 3px; }
+
+  /* Info box */
+  .info-box { background: var(--blue-light); border-left: 3px solid var(--blue); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 10px 14px; font-size: 12px; color: #1447b5; margin-bottom: 14px; }
+  .warn-box { background: var(--amber-light); border-left: 3px solid #92510a; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 10px 14px; font-size: 12px; color: var(--amber); margin-bottom: 14px; }
+
+  /* Live badge */
+  .live-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; background: var(--green-light); color: var(--green); padding: 2px 7px; border-radius: 20px; }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: blink 2s infinite; }
+
+  .section-sep { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  /* Loading spinner */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } .overall-bar { width: 120px; } }
+
+  /* Last updated */
+  .last-updated { font-size: 11px; color: var(--text3); margin-top: 24px; text-align: center; }
+
+  /* Print */
+  @media print { .config-panel { display: none; } .btn-load { display: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="avatar">MD</div>
+      <div>
+        <div class="header-name">Matthew Darmawan B.S.</div>
+        <div class="header-role">Service Management Officer &mdash; KPI 2026</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="overall-label">Overall YTD</div>
+      <div class="overall-score" id="overall-score">–</div>
+      <div class="overall-bar"><div class="overall-fill" id="overall-bar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- Config Panel -->
+  <div class="config-panel">
+    <div class="config-title">
+      ⚙️ Konfigurasi Sumber Data Google Sheets
+    </div>
+    <div class="config-grid" id="config-grid"></div>
+    <div style="margin-top:14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+      <span style="font-size:11px; color:#1447b5;">Paste link CSV dari Google Sheets (File → Share → Publish to web → CSV) lalu klik Muat Semua Data.</span>
+      <button class="btn-load" onclick="loadAllData()">⟳ Muat Semua Data</button>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics-grid" id="metrics-grid">
+    <div class="metric-card"><div class="metric-label">Total KPI Item</div><div class="metric-value c-blue">6</div><div class="metric-sub">item aktif 2026</div></div>
+    <div class="metric-card"><div class="metric-label">Bulan Tercatat</div><div class="metric-value c-blue">6</div><div class="metric-sub">Jan – Jun 2026</div></div>
+    <div class="metric-card"><div class="metric-label">On Track</div><div class="metric-value c-green" id="m-ontrack">–</div><div class="metric-sub">≥ 90% achieve</div></div>
+    <div class="metric-card"><div class="metric-label">Perlu Perhatian</div><div class="metric-value c-red" id="m-attention">–</div><div class="metric-sub">< 60% achieve</div></div>
+    <div class="metric-card"><div class="metric-label">Improvement YTD</div><div class="metric-value c-amber" id="m-improvement">–</div><div class="metric-sub">target 15 s.d. Mei</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('ringkasan')">📊 Ringkasan</button>
+    <button class="tab-btn" onclick="switchTab('passcar')">🚗 Komplain Passcar</button>
+    <button class="tab-btn" onclick="switchTab('improvement')">💡 Improvement</button>
+    <button class="tab-btn" onclick="switchTab('stock')">📦 Accuracy Stock</button>
+    <button class="tab-btn" onclick="switchTab('maintenance')">🔧 Maintenance H+1</button>
+    <button class="tab-btn" onclick="switchTab('denda')">📋 Denda Dokumen</button>
+  </div>
+
+  <!-- TAB: Ringkasan -->
+  <div id="tab-ringkasan">
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Pencapaian per Kategori</div>
+        <div class="chart-wrap" style="height:200px;"><canvas id="catChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Trend Bulanan (Avg Semua KPI)</div>
+        <div class="chart-wrap" style="height:200px;"><canvas id="trendChart"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Status Semua KPI</div>
+      <table class="data-table">
+        <thead><tr><th>Kode</th><th>KPI</th><th>Bobot</th><th>YTD Achieve</th><th>Sumber</th><th>Status</th></tr></thead>
+        <tbody id="summary-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: Passcar -->
+  <div id="tab-passcar" style="display:none;">
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <div class="card-title" style="margin:0;"># of Complaint Passenger Car</div>
+        <div id="passcar-live-badge"></div>
+      </div>
+      <div id="passcar-info" class="info-box">Klik "Muat Semua Data" untuk memuat data dari Google Sheets.</div>
+      <div class="two-col" style="margin-bottom:16px;">
+        <div><div class="chart-wrap" style="height:180px;"><canvas id="passcarTypeChart"></canvas></div></div>
+        <div><div class="chart-wrap" style="height:180px;"><canvas id="passcarMonthChart"></canvas></div></div>
+      </div>
+      <div class="card-title">Semua Entri</div>
+      <div id="passcar-list"><div style="color:var(--text3); font-size:13px; text-align:center; padding:20px;">Belum ada data dimuat.</div></div>
+    </div>
+  </div>
+
+  <!-- TAB: Improvement -->
+  <div id="tab-improvement" style="display:none;">
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <div class="card-title" style="margin:0;"># of Improvement Service Management</div>
+        <div id="imp-live-badge"></div>
+      </div>
+      <div id="imp-info" class="info-box">Klik "Muat Semua Data" untuk memuat data dari Google Sheets.</div>
+      <div class="chart-wrap" style="height:180px; margin-bottom:16px;"><canvas id="impChart"></canvas></div>
+      <div class="card-title">Daftar Improvement</div>
+      <div id="improvement-list"><div style="color:var(--text3); font-size:13px; text-align:center; padding:20px;">Belum ada data dimuat.</div></div>
+    </div>
+  </div>
+
+  <!-- TAB: Stock -->
+  <div id="tab-stock" style="display:none;">
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <div class="card-title" style="margin:0;">Accuracy Utility Stock 2026</div>
+        <div id="stock-live-badge"></div>
+      </div>
+      <div id="stock-info" class="info-box">Klik "Muat Semua Data" untuk memuat data dari Google Sheets.</div>
+      <div class="chart-wrap" style="height:200px; margin-bottom:16px;"><canvas id="stockChart"></canvas></div>
+      <table class="data-table" id="stock-table">
+        <thead><tr><th>Bulan</th><th>Surplus</th><th>Total Stok</th><th>% Surplus</th><th>Trend</th></tr></thead>
+        <tbody id="stock-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: Maintenance -->
+  <div id="tab-maintenance" style="display:none;">
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <div class="card-title" style="margin:0;">Handling Maintenance H+1</div>
+        <div id="maint-live-badge"></div>
+      </div>
+      <div id="maint-info" class="info-box">Klik "Muat Semua Data" untuk memuat data dari Google Sheets.</div>
+      <div class="chart-wrap" style="height:200px; margin-bottom:16px;"><canvas id="maintChart"></canvas></div>
+      <table class="data-table">
+        <thead><tr id="maint-head"></tr></thead>
+        <tbody id="maint-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: Denda -->
+  <div id="tab-denda" style="display:none;">
+    <div class="card">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <div class="card-title" style="margin:0;">Jumlah Denda Keterlambatan Dokumen</div>
+        <div id="denda-live-badge"></div>
+      </div>
+      <div id="denda-info" class="info-box">Klik "Muat Semua Data" untuk memuat data dari Google Sheets.</div>
+      <div class="chart-wrap" style="height:200px; margin-bottom:16px;"><canvas id="dendaChart"></canvas></div>
+      <table class="data-table">
+        <thead><tr id="denda-head"></tr></thead>
+        <tbody id="denda-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="last-updated" id="last-updated"></div>
+</div>
+
+<script>
+// =====================================================
+// KONFIGURASI SUMBER DATA — Edit sesuai kebutuhan
+// =====================================================
+const SOURCES = [
+  {
+    id: 'passcar',
+    label: '# of Complaint Passenger Car',
+    url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRYRQqdVeJBcaaU9_BNCW1ld5OG655snrinfoN96bfpf72e3k6PsEUkGCaaEhocOqw4619RgXZAHxWs/pub?output=csv',
+    status: 'idle'
+  },
+  {
+    id: 'improvement',
+    label: '# of Improvement Service Management',
+    url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTEWfV1pWPGmhMS-b386fx7TEXGIqhFMcl6Lgb730j627VC1ZelKEELPE4PSV1ABnm4HqCam1fN59UF/pub?gid=143718409&single=true&output=csv',
+    status: 'idle'
+  },
+  {
+    id: 'stock',
+    label: 'Accuracy Utility Stock',
+    url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRACpHrY0xC4IuMnARRgG4AxbsSBYW5NfUdYfLlPuhQP-746rA4U3CrVPuOhTlsTQ/pub?output=csv',
+    status: 'idle'
+  },
+  {
+    id: 'maintenance',
+    label: 'Handling Maintenance H+1',
+    url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSA6mRlhep8PNSM9enm8IvAWC44sDKe5-YryErVlg0UNKA_YMa5VKPxbVLyNDfeeueuE0jG1Utssi3I/pub?output=csv',
+    status: 'idle'
+  },
+  {
+    id: 'denda',
+    label: 'Jumlah Denda Keterlambatan Dokumen',
+    url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFd7B9K7tGnk2KV-rmNKpMqTKMUpC3XsRQRTqfNF85bBAgR66FtYGgme-iLaANaQ/pub?output=csv',
+    status: 'idle'
+  }
+];
+
+// KPI definitions
+const KPI_ITEMS = [
+  { code:'A.1', group:'A – Manage GS Tickets', name:'# of complaint cleaning service area', bobot:0.15, achieve:1.0, sourceId: null },
+  { code:'A.2', group:'A – Manage GS Tickets', name:'# of complaint passenger car', bobot:0.15, achieve:1.0, sourceId:'passcar' },
+  { code:'B.1', group:'B – Finished Notification', name:'# of finished notification cleaning service', bobot:0.10, achieve:1.0, sourceId: null },
+  { code:'C.1', group:'C – Improvement Area', name:'# of improvement service management', bobot:0.15, achieve:0.4167, sourceId:'improvement' },
+  { code:'D.1', group:'D – Efficiency & Accuracy', name:'Handling maintenance H+1', bobot:0.15, achieve:0.3333, sourceId:'maintenance' },
+  { code:'D.2', group:'D – Efficiency & Accuracy', name:'Jumlah denda keterlambatan dokumen', bobot:0.10, achieve:0.4123, sourceId:'denda' },
+  { code:'D.3', group:'D – Efficiency & Accuracy', name:'Admin accuracy', bobot:0.10, achieve:0.4167, sourceId: null },
+  { code:'D.4', group:'D – Efficiency & Accuracy', name:'Accuracy utility stock', bobot:0.10, achieve:0.4167, sourceId:'stock' },
+];
+
+const MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+
+// Parsed data store
+const DATA = {};
+const CHARTS = {};
+
+// =====================================================
+// CSV Parser
+// =====================================================
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = parseCSVLine(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = parseCSVLine(line);
+    const obj = {};
+    headers.forEach((h, i) => obj[h.trim()] = (vals[i] || '').trim());
+    return obj;
+  }).filter(row => Object.values(row).some(v => v !== ''));
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') { inQ = !inQ; }
+    else if (line[i] === ',' && !inQ) { result.push(cur); cur = ''; }
+    else { cur += line[i]; }
+  }
+  result.push(cur);
+  return result;
+}
+
+// =====================================================
+// Config Panel
+// =====================================================
+function buildConfigPanel() {
+  const grid = document.getElementById('config-grid');
+  grid.innerHTML = SOURCES.map((s, i) => `
+    <div class="config-item">
+      <div class="config-label">${s.label}</div>
+      <div class="config-row">
+        <span class="status-dot dot-gray" id="dot-${s.id}"></span>
+        <input class="config-input" id="url-${s.id}" value="${s.url}" placeholder="Paste link CSV Google Sheets..." />
+      </div>
+    </div>
+  `).join('');
+}
+
+// =====================================================
+// Fetch Data
+// =====================================================
+async function fetchCSV(sourceId) {
+  const src = SOURCES.find(s => s.id === sourceId);
+  const urlInput = document.getElementById('url-' + sourceId);
+  const dot = document.getElementById('dot-' + sourceId);
+  const url = urlInput ? urlInput.value.trim() : src.url;
+
+  if (!url) { dot.className = 'status-dot dot-gray'; return null; }
+  dot.className = 'status-dot dot-loading';
+
+  const proxies = [
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  ];
+
+  for (const makeProxy of proxies) {
+    try {
+      const res = await fetch(makeProxy(url), { cache: 'no-store' });
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (!text || text.trim().length < 10) continue;
+      const rows = parseCSV(text);
+      if (!rows.length) continue;
+      DATA[sourceId] = rows;
+      dot.className = 'status-dot dot-green';
+      return rows;
+    } catch(e) { continue; }
+  }
+
+  dot.className = 'status-dot dot-red';
+  return null;
+}
+
+async function loadAllData() {
+  const btn = document.querySelector('.btn-load');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Memuat...';
+
+  await Promise.all(SOURCES.map(s => fetchCSV(s.id)));
+
+  processAllData();
+  renderAllTabs();
+
+  btn.disabled = false;
+  btn.innerHTML = '⟳ Muat Semua Data';
+  document.getElementById('last-updated').textContent = 'Terakhir diperbarui: ' + new Date().toLocaleString('id-ID');
+}
+
+// =====================================================
+// Process Data
+// =====================================================
+function processAllData() {
+  processPasscar();
+  processImprovement();
+  processStock();
+  processMaintenance();
+  processDenda();
+  updateOverall();
+}
+
+function processPasscar() {
+  if (!DATA.passcar) return;
+  const rows = DATA.passcar;
+  // Count by status
+  const statusCount = {};
+  rows.forEach(r => {
+    const s = (r['Status'] || r['status'] || '').toLowerCase();
+    if (s) statusCount[s] = (statusCount[s] || 0) + 1;
+  });
+  const totalKomplain = statusCount['komplain'] || 0;
+  // Update KPI achieve based on real data (target: max 3 komplain/bulan)
+  const kpi = KPI_ITEMS.find(k => k.code === 'A.2');
+  if (kpi) kpi.achieve = totalKomplain <= 3 ? 1.0 : Math.max(0, 1 - (totalKomplain - 3) / 3);
+}
+
+function processImprovement() {
+  if (!DATA.improvement) return;
+  const rows = DATA.improvement.filter(r => r['Nama Ide'] && r['Nama Ide'].trim());
+  const completed = rows.filter(r => (r['Status'] || '').toLowerCase() === 'completed').length;
+  const kpi = KPI_ITEMS.find(k => k.code === 'C.1');
+  if (kpi) {
+    kpi.achieve = completed / 36; // target 36/tahun
+    document.getElementById('m-improvement').textContent = completed;
+  }
+}
+
+function processStock() {
+  if (!DATA.stock) return;
+  // Find 2026 data section (3rd block)
+  const rows = DATA.stock;
+  const idx2026 = rows.reduce((last, r, i) => r['Bulan'] === 'Januari' ? i : last, -1);
+  if (idx2026 >= 0) {
+    const block = rows.slice(idx2026).filter(r => r['Bulan'] && r['prosentase'] && !r['prosentase'].includes('DIV'));
+    if (block.length > 0) {
+      const lastPct = parseFloat(block[block.length-1]['prosentase']) || 4.73;
+      const kpi = KPI_ITEMS.find(k => k.code === 'D.4');
+      if (kpi) kpi.achieve = 1 - (lastPct / 100);
+    }
+  }
+}
+
+function processMaintenance() {
+  if (!DATA.maintenance) return;
+  const rows = DATA.maintenance;
+  const kpi = KPI_ITEMS.find(k => k.code === 'D.1');
+  if (kpi && rows.length > 0) {
+    // Try to calculate achieve from data
+    const achieveCol = Object.keys(rows[0]).find(k => k.toLowerCase().includes('achiev') || k.toLowerCase().includes('pencapaian'));
+    if (achieveCol) {
+      const vals = rows.map(r => parseFloat(r[achieveCol])).filter(v => !isNaN(v));
+      if (vals.length) kpi.achieve = vals.reduce((a,b)=>a+b,0) / vals.length;
+    }
+  }
+}
+
+function processDenda() {
+  if (!DATA.denda) return;
+  const rows = DATA.denda;
+  const kpi = KPI_ITEMS.find(k => k.code === 'D.2');
+  if (kpi && rows.length > 0) {
+    const dendaCol = Object.keys(rows[0]).find(k => k.toLowerCase().includes('denda') || k.toLowerCase().includes('jumlah'));
+    if (dendaCol) {
+      const vals = rows.map(r => parseFloat(r[dendaCol])).filter(v => !isNaN(v) && v > 0);
+      // If no denda (0), achieve = 1; else reduce
+      kpi.achieve = vals.length === 0 ? 1.0 : Math.max(0, 1 - vals.reduce((a,b)=>a+b,0) / 1000000);
+    }
+  }
+}
+
+function updateOverall() {
+  const total = KPI_ITEMS.reduce((sum, k) => sum + k.achieve * k.bobot, 0);
+  const totalBobot = KPI_ITEMS.reduce((sum, k) => sum + k.bobot, 0);
+  const pct = (total / totalBobot * 100).toFixed(1);
+  document.getElementById('overall-score').textContent = pct + '%';
+  document.getElementById('overall-bar').style.width = pct + '%';
+
+  const ontrack = KPI_ITEMS.filter(k => k.achieve >= 0.9).length;
+  const attention = KPI_ITEMS.filter(k => k.achieve < 0.6).length;
+  document.getElementById('m-ontrack').textContent = ontrack;
+  document.getElementById('m-attention').textContent = attention;
+}
+
+// =====================================================
+// Render Tabs
+// =====================================================
+function renderAllTabs() {
+  renderSummary();
+  renderPasscarTab();
+  renderImprovementTab();
+  renderStockTab();
+  renderMaintenanceTab();
+  renderDendaTab();
+}
+
+function getStatusBadge(achieve) {
+  if (achieve >= 0.9) return '<span class="badge badge-green">On Track</span>';
+  if (achieve >= 0.6) return '<span class="badge badge-amber">Progres</span>';
+  if (achieve > 0) return '<span class="badge badge-red">Perhatian</span>';
+  return '<span class="badge badge-gray">Belum Data</span>';
+}
+
+function getBarColor(a) {
+  if (a >= 0.9) return '#0e7a4a';
+  if (a >= 0.6) return '#92510a';
+  return '#b91c1c';
+}
+
+function liveBadge(sourceId) {
+  if (!sourceId) return '<span class="badge badge-gray">KPI Excel</span>';
+  const ok = DATA[sourceId] != null;
+  return ok
+    ? `<span class="live-badge"><span class="live-dot"></span> Live Google Sheets</span>`
+    : `<span class="badge badge-gray">Belum dimuat</span>`;
+}
+
+function renderSummary() {
+  // Summary table
+  const tbody = document.getElementById('summary-tbody');
+  let html = ''; let lastGroup = '';
+  KPI_ITEMS.forEach(k => {
+    if (k.group !== lastGroup) {
+      html += `<tr class="group-row"><td colspan="6">${k.group}</td></tr>`;
+      lastGroup = k.group;
+    }
+    const pct = (k.achieve * 100).toFixed(1);
+    const color = getBarColor(k.achieve);
+    const src = k.sourceId ? (DATA[k.sourceId] ? `<span class="live-badge" style="font-size:10px;"><span class="live-dot"></span>Live</span>` : `<span class="badge badge-gray" style="font-size:10px;">Belum dimuat</span>`) : `<span class="badge badge-gray" style="font-size:10px;">KPI Excel</span>`;
+    html += `<tr>
+      <td style="font-weight:600; color:#1a56db;">${k.code}</td>
+      <td>${k.name}</td>
+      <td style="color:var(--text2);">${(k.bobot*100).toFixed(0)}%</td>
+      <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill" style="width:${Math.min(100,k.achieve*100)}%;background:${color};"></div></div><span class="prog-pct" style="color:${color};">${pct}%</span></div></td>
+      <td>${src}</td>
+      <td>${getStatusBadge(k.achieve)}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+
+  // Category chart
+  const groups = {};
+  KPI_ITEMS.forEach(k => {
+    const g = k.group.split('–')[0].trim();
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(k.achieve);
+  });
+  const labels = Object.keys(groups);
+  const data = labels.map(g => parseFloat((groups[g].reduce((a,b)=>a+b,0)/groups[g].length*100).toFixed(1)));
+  const colors = data.map(v => v>=90?'#0e7a4a':v>=60?'#92510a':'#b91c1c');
+
+  if (CHARTS.catChart) CHARTS.catChart.destroy();
+  CHARTS.catChart = new Chart(document.getElementById('catChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label:'Achieve %', data, backgroundColor: colors, borderRadius:5, borderSkipped:false }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{
+      y:{ min:0, max:110, ticks:{callback:v=>v+'%', font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} },
+      x:{ ticks:{font:{size:10}}, grid:{display:false} }
+    }}
+  });
+
+  // Trend chart (monthly average from KPI excel data)
+  const monthlyAvg = [1.0, 1.0, 1.0, 1.0, 0.875, 0.375, null, null, null, null, null, null].filter(v => v !== null);
+  if (CHARTS.trendChart) CHARTS.trendChart.destroy();
+  CHARTS.trendChart = new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: MONTHS_SHORT.slice(0, monthlyAvg.length),
+      datasets: [{
+        label: 'Avg Pencapaian', data: monthlyAvg.map(v => parseFloat((v*100).toFixed(1))),
+        borderColor: '#1a56db', backgroundColor: 'rgba(26,86,219,0.08)',
+        tension: 0.3, borderWidth: 2.5, pointRadius: 5, fill: true
+      }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+      y:{ min:0, max:110, ticks:{callback:v=>v+'%', font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} },
+      x:{ ticks:{font:{size:10}}, grid:{display:false} }
+    }}
+  });
+}
+
+function renderPasscarTab() {
+  const badge = document.getElementById('passcar-live-badge');
+  badge.innerHTML = liveBadge('passcar');
+
+  if (!DATA.passcar) {
+    document.getElementById('passcar-info').className = 'warn-box';
+    document.getElementById('passcar-info').textContent = 'Data belum dimuat. Klik "Muat Semua Data" di atas.';
+    return;
+  }
+
+  const rows = DATA.passcar;
+  const statusCount = {};
+  rows.forEach(r => {
+    const s = (r['Status'] || r['status'] || 'lainnya').toLowerCase();
+    statusCount[s] = (statusCount[s] || 0) + 1;
+  });
+
+  const totalKomplain = statusCount['komplain'] || 0;
+  document.getElementById('passcar-info').className = 'info-box';
+  document.getElementById('passcar-info').innerHTML = `Total <strong>${rows.length} entri</strong> tercatat. Komplain murni: <strong>${totalKomplain}</strong> &mdash; ${totalKomplain <= 3 ? 'masih dalam batas toleransi ✓' : 'melebihi batas toleransi!'}`;
+
+  // Type donut
+  if (CHARTS.passcarTypeChart) CHARTS.passcarTypeChart.destroy();
+  CHARTS.passcarTypeChart = new Chart(document.getElementById('passcarTypeChart'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(statusCount),
+      datasets: [{ data: Object.values(statusCount), backgroundColor: ['#b91c1c','#1a56db','#92510a','#0e7a4a'], borderWidth: 0 }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{
+      legend:{ position:'bottom', labels:{ font:{size:11}, usePointStyle:true, padding:8 } },
+      title:{ display:true, text:'Distribusi Tipe', font:{size:12} }
+    }}
+  });
+
+  // Month chart
+  const monthCount = {};
+  rows.forEach(r => {
+    const d = r['Complain date'] || r['complain date'] || r['Date'] || '';
+    if (d) {
+      const parts = d.split('/');
+      if (parts.length >= 2) {
+        const m = parseInt(parts[0]) - 1;
+        if (m >= 0 && m < 12) monthCount[m] = (monthCount[m] || 0) + 1;
+      }
+    }
+  });
+  const monthData = Array.from({length:12}, (_,i) => monthCount[i] || 0);
+
+  if (CHARTS.passcarMonthChart) CHARTS.passcarMonthChart.destroy();
+  CHARTS.passcarMonthChart = new Chart(document.getElementById('passcarMonthChart'), {
+    type: 'bar',
+    data: {
+      labels: MONTHS_SHORT,
+      datasets: [{ label:'Jumlah Entri', data: monthData, backgroundColor:'#1a56db', borderRadius:4, borderSkipped:false }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{
+      legend:{display:false},
+      title:{display:true, text:'Entri per Bulan', font:{size:12}}
+    }, scales:{
+      y:{ min:0, ticks:{stepSize:1, font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} },
+      x:{ ticks:{font:{size:9}}, grid:{display:false} }
+    }}
+  });
+
+  // List
+  const statusBadgeMap = { 'komplain':'badge-red', 'saran':'badge-blue', 'permintaan':'badge-amber' };
+  document.getElementById('passcar-list').innerHTML = rows.map(r => {
+    const status = (r['Status'] || r['status'] || '').toLowerCase();
+    const badgeCls = statusBadgeMap[status] || 'badge-gray';
+    return `<div class="complaint-item">
+      <div class="complaint-title-text">${r['Komplain'] || r['komplain'] || r['Deskripsi'] || 'Entri'}</div>
+      <div class="complaint-meta">
+        <span class="badge ${badgeCls}">${status}</span>
+        <span>👤 ${r['User'] || r['user'] || '–'}</span>
+        <span>📅 ${r['Complain date'] || r['complain date'] || '–'}</span>
+        <span>📍 ${r['Bagian'] || r['bagian'] || '–'}</span>
+      </div>
+      ${r['Hasil'] || r['hasil'] ? `<div class="complaint-hasil">→ ${r['Hasil'] || r['hasil']}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderImprovementTab() {
+  const badge = document.getElementById('imp-live-badge');
+  badge.innerHTML = liveBadge('improvement');
+
+  if (!DATA.improvement) {
+    document.getElementById('imp-info').className = 'warn-box';
+    document.getElementById('imp-info').textContent = 'Data belum dimuat. Klik "Muat Semua Data" di atas.';
+    return;
+  }
+
+  const rows = DATA.improvement.filter(r => r['Nama Ide'] && r['Nama Ide'].trim());
+  const completed = rows.filter(r => (r['Status']||'').toLowerCase() === 'completed').length;
+  document.getElementById('m-improvement').textContent = completed;
+
+  document.getElementById('imp-info').className = 'info-box';
+  document.getElementById('imp-info').innerHTML = `Target: <strong>3/bulan (36/tahun)</strong>. Completed s.d. sekarang: <strong>${completed}</strong>. Progress: <strong>${(completed/36*100).toFixed(1)}%</strong> dari target tahunan.`;
+
+  const monthMap = {};
+  MONTHS.forEach(m => monthMap[m.toLowerCase()] = 0);
+  rows.forEach(r => {
+    const b = (r['Bulan'] || r['bulan'] || '').toLowerCase();
+    if (monthMap[b] !== undefined) monthMap[b]++;
+  });
+
+  if (CHARTS.impChart) CHARTS.impChart.destroy();
+  CHARTS.impChart = new Chart(document.getElementById('impChart'), {
+    type: 'bar',
+    data: {
+      labels: MONTHS_SHORT,
+      datasets: [
+        { label:'Actual', data: MONTHS.map(m => monthMap[m.toLowerCase()] || 0), backgroundColor:'#0e7a4a', borderRadius:4, borderSkipped:false },
+        { label:'Target', data: Array(12).fill(3), backgroundColor:'rgba(146,81,10,0.2)', borderRadius:4, borderSkipped:false }
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{
+      legend:{ position:'top', labels:{font:{size:11}, usePointStyle:true} }
+    }, scales:{
+      y:{ min:0, max:6, ticks:{stepSize:1, font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} },
+      x:{ ticks:{font:{size:10}}, grid:{display:false} }
+    }}
+  });
+
+  const bagianColors = { 'cs':'badge-green', 'passcar':'badge-blue', 'admin':'badge-amber' };
+  document.getElementById('improvement-list').innerHTML = rows.map((r, i) => {
+    const bagian = (r['Bagian'] || r['bagian'] || '').toLowerCase();
+    const badgeCls = bagianColors[bagian] || 'badge-gray';
+    const isDone = (r['Status']||'').toLowerCase() === 'completed';
+    return `<div class="imp-item">
+      <div class="imp-num">${i+1}</div>
+      <div class="imp-body">
+        <div class="imp-name">${r['Nama Ide'] || '–'}</div>
+        <div class="imp-meta"><span class="badge ${badgeCls}">${r['Bagian']||'–'}</span> &bull; ${r['Bulan']||'–'} &bull; ${r['Nama']||r['nama']||'–'}</div>
+      </div>
+      ${isDone ? '<span class="badge badge-green">✓ Done</span>' : '<span class="badge badge-amber">Proses</span>'}
+    </div>`;
+  }).join('');
+}
+
+function renderStockTab() {
+  const badge = document.getElementById('stock-live-badge');
+  badge.innerHTML = liveBadge('stock');
+
+  if (!DATA.stock) {
+    document.getElementById('stock-info').className = 'warn-box';
+    document.getElementById('stock-info').textContent = 'Data belum dimuat. Klik "Muat Semua Data" di atas.';
+    return;
+  }
+
+  // Find last Januari as start of 2026 block
+  const rows = DATA.stock;
+  let startIdx = -1;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i]['Bulan'] === 'Januari') { startIdx = i; break; }
+  }
+  const block = startIdx >= 0
+    ? rows.slice(startIdx).filter(r => r['Bulan'] && r['prosentase'] && !r['prosentase'].includes('DIV') && !r['prosentase'].includes('#'))
+    : [];
+
+  if (block.length === 0) {
+    document.getElementById('stock-info').textContent = 'Data 2026 tidak ditemukan di spreadsheet.';
+    return;
+  }
+
+  document.getElementById('stock-info').className = 'info-box';
+  document.getElementById('stock-info').innerHTML = `Tren surplus stock <strong>terus menurun</strong> — indikasi peningkatan akurasi inventory. Data tersedia: <strong>${block.length} bulan</strong>.`;
+
+  const labels = block.map(r => r['Bulan']);
+  const pcts = block.map(r => parseFloat(r['prosentase']) || 0);
+
+  if (CHARTS.stockChart) CHARTS.stockChart.destroy();
+  CHARTS.stockChart = new Chart(document.getElementById('stockChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label:'% Surplus', data: pcts,
+        borderColor:'#92510a', backgroundColor:'rgba(146,81,10,0.08)',
+        tension:0.3, borderWidth:2.5, pointRadius:5, fill:true
+      }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+      y:{ min:0, ticks:{callback:v=>v+'%', font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} },
+      x:{ ticks:{font:{size:10}}, grid:{display:false} }
+    }}
+  });
+
+  document.getElementById('stock-tbody').innerHTML = block.map((r, i) => {
+    const prev = i > 0 ? parseFloat(block[i-1]['prosentase']) : null;
+    const cur = parseFloat(r['prosentase']);
+    const trend = prev === null ? '–' : cur < prev ? '<span style="color:#0e7a4a;">▼ Turun</span>' : cur > prev ? '<span style="color:#b91c1c;">▲ Naik</span>' : '→ Sama';
+    return `<tr><td>${r['Bulan']}</td><td>${r['Jumlah Surplus']||'–'}</td><td>${r['Total stok']||'–'}</td><td style="font-weight:600;">${r['prosentase']}</td><td>${trend}</td></tr>`;
+  }).join('');
+}
+
+function renderGenericTab(sourceId, headEl, tbodyEl, chartEl, infoEl, badgeEl, chartLabelKey) {
+  document.getElementById(badgeEl).innerHTML = liveBadge(sourceId);
+
+  if (!DATA[sourceId]) {
+    document.getElementById(infoEl).className = 'warn-box';
+    document.getElementById(infoEl).textContent = 'Data belum dimuat. Klik "Muat Semua Data" di atas.';
+    return;
+  }
+
+  const rows = DATA[sourceId].filter(r => Object.values(r).some(v => v.trim() !== ''));
+  if (!rows.length) return;
+
+  const headers = Object.keys(rows[0]);
+
+  document.getElementById(headEl).innerHTML = headers.map(h => `<th>${h}</th>`).join('');
+  document.getElementById(tbodyEl).innerHTML = rows.map(r =>
+    `<tr>${headers.map(h => `<td>${r[h]||'–'}</td>`).join('')}</tr>`
+  ).join('');
+
+  // Try to build a simple chart from numeric columns
+  const numCols = headers.filter(h => rows.some(r => !isNaN(parseFloat(r[h])) && r[h].trim() !== ''));
+  const labelCol = headers[0];
+  if (numCols.length > 0 && CHARTS[chartEl]) CHARTS[chartEl].destroy();
+  if (numCols.length > 0) {
+    const colors = ['#1a56db','#0e7a4a','#92510a','#b91c1c'];
+    CHARTS[chartEl] = new Chart(document.getElementById(chartEl), {
+      type: 'bar',
+      data: {
+        labels: rows.map(r => r[labelCol] || '').slice(0, 20),
+        datasets: numCols.slice(0, 3).map((col, i) => ({
+          label: col,
+          data: rows.map(r => parseFloat(r[col]) || 0).slice(0, 20),
+          backgroundColor: colors[i % colors.length],
+          borderRadius: 4, borderSkipped: false
+        }))
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{
+        legend:{ position:'top', labels:{font:{size:11}, usePointStyle:true} }
+      }, scales:{
+        y:{ ticks:{font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} },
+        x:{ ticks:{font:{size:9}, maxRotation:45}, grid:{display:false} }
+      }}
+    });
+  }
+
+  document.getElementById(infoEl).className = 'info-box';
+  document.getElementById(infoEl).textContent = `${rows.length} baris data berhasil dimuat dari Google Sheets.`;
+}
+
+function renderMaintenanceTab() {
+  renderGenericTab('maintenance','maint-head','maint-tbody','maintChart','maint-info','maint-live-badge','maintChart');
+}
+
+function renderDendaTab() {
+  renderGenericTab('denda','denda-head','denda-tbody','dendaChart','denda-info','denda-live-badge','dendaChart');
+}
+
+// =====================================================
+// Tab Switching
+// =====================================================
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const tabs = ['ringkasan','passcar','improvement','stock','maintenance','denda'];
+  tabs.forEach(t => document.getElementById('tab-'+t).style.display = 'none');
+  document.getElementById('tab-'+tab).style.display = '';
+  const idx = tabs.indexOf(tab);
+  document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+}
+
+// =====================================================
+// Init
+// =====================================================
+buildConfigPanel();
+updateOverall();
+renderSummary();
+</script>
+</body>
+</html>
