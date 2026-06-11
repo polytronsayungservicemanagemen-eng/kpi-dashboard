@@ -887,11 +887,141 @@ function renderGenericTab(sourceId, headEl, tbodyEl, chartEl, infoEl, badgeEl, c
 }
 
 function renderMaintenanceTab() {
-  renderGenericTab('maintenance','maint-head','maint-tbody','maintChart','maint-info','maint-live-badge','maintChart');
+  document.getElementById('maint-live-badge').innerHTML = liveBadge('maintenance');
+  if (!DATA.maintenance) {
+    document.getElementById('maint-info').className = 'warn-box';
+    document.getElementById('maint-info').textContent = 'Data belum dimuat. Klik "Muat Semua Data" di atas.';
+    return;
+  }
+  const rows = DATA.maintenance;
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthsID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+
+  const laporan = rows.find(r => (r['Keterangan']||'').toLowerCase().includes('laporan'));
+  const followup = rows.find(r => (r['Keterangan']||'').toLowerCase().includes('follow'));
+  const accuracy = rows.find(r => (r['Keterangan']||'').toLowerCase().includes('accuracy'));
+
+  const laporanData = months.map(m => parseFloat(laporan?.[m]) || 0);
+  const followupData = months.map(m => parseFloat(followup?.[m]) || 0);
+  const accuracyData = months.map(m => {
+    const val = accuracy?.[m] || '';
+    if (!val || val.includes('DIV') || val === '0') return null;
+    return parseFloat(val.replace('%','')) || null;
+  });
+
+  const validAcc = accuracyData.filter(v => v !== null);
+  const avgAcc = validAcc.length ? validAcc.reduce((a,b)=>a+b,0)/validAcc.length : 0;
+  const kpi = KPI_ITEMS.find(k => k.code === 'D.1');
+  if (kpi) { kpi.achieve = avgAcc / 100; }
+
+  document.getElementById('maint-info').className = 'info-box';
+  document.getElementById('maint-info').innerHTML = `Target: <strong>100% follow up H+1</strong>. Rata-rata accuracy: <strong>${avgAcc.toFixed(1)}%</strong> (${validAcc.length} bulan data).`;
+
+  if (CHARTS.maintChart) CHARTS.maintChart.destroy();
+  CHARTS.maintChart = new Chart(document.getElementById('maintChart'), {
+    type: 'bar',
+    data: {
+      labels: monthsID,
+      datasets: [
+        { label:'Jumlah Laporan', data: laporanData, backgroundColor:'#1a56db', borderRadius:4, borderSkipped:false },
+        { label:'Follow Up H+1', data: followupData, backgroundColor:'#0e7a4a', borderRadius:4, borderSkipped:false }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'top', labels:{ font:{size:11}, usePointStyle:true } } },
+      scales:{
+        y:{ min:0, ticks:{ stepSize:1, font:{size:10} }, grid:{color:'rgba(0,0,0,0.05)'} },
+        x:{ ticks:{ font:{size:10} }, grid:{display:false} }
+      }
+    }
+  });
+
+  document.getElementById('maint-head').innerHTML = `<th>Keterangan</th>${monthsID.map(m=>`<th>${m}</th>`).join('')}`;
+  document.getElementById('maint-tbody').innerHTML = rows.map(r => {
+    const isAcc = (r['Keterangan']||'').toLowerCase().includes('accuracy');
+    const cells = months.map(m => {
+      const v = r[m] || '';
+      const isErr = v.includes('DIV') || v.includes('#');
+      return `<td style="color:${isErr?'var(--text3)':'var(--text)'};${isAcc?'font-weight:600;color:#0e7a4a;':''}">${isErr?'–':v||'–'}</td>`;
+    }).join('');
+    return `<tr><td style="${isAcc?'font-weight:600;':''}">${r['Keterangan']||'–'}</td>${cells}</tr>`;
+  }).join('');
+
+  updateOverall(); renderSummary();
 }
 
 function renderDendaTab() {
-  renderGenericTab('denda','denda-head','denda-tbody','dendaChart','denda-info','denda-live-badge','dendaChart');
+  document.getElementById('denda-live-badge').innerHTML = liveBadge('denda');
+  if (!DATA.denda) {
+    document.getElementById('denda-info').className = 'warn-box';
+    document.getElementById('denda-info').textContent = 'Data belum dimuat. Klik "Muat Semua Data" di atas.';
+    return;
+  }
+  const rows = DATA.denda;
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthsID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+
+  const isRowBased = rows.length <= 15 && rows[0] && Object.keys(rows[0]).some(k => k === 'January' || k === 'Keterangan');
+
+  // Row-based structure: Keterangan | January | ... | December
+  const unitRow    = rows.find(r => (r['Keterangan']||'').toLowerCase().includes('unit'));
+  const selesaiRow = rows.find(r => (r['Keterangan']||'').toLowerCase().includes('terselesai') || (r['Keterangan']||'').toLowerCase().includes('dokumen') && !(r['Keterangan']||'').toLowerCase().includes('unit'));
+  const terlambatRow = rows.find(r => (r['Keterangan']||'').toLowerCase().includes('keterlambatan') || (r['Keterangan']||'').toLowerCase().includes('terlambat'));
+  const accRow     = rows.find(r => (r['Keterangan']||'').toLowerCase().includes('accuracy'));
+
+  const unitData     = months.map(m => parseFloat(unitRow?.[m]) || 0);
+  const selesaiData  = months.map(m => parseFloat(selesaiRow?.[m]) || 0);
+  const terlambatData= months.map(m => parseFloat(terlambatRow?.[m]) || 0);
+  const accData      = months.map(m => {
+    const v = accRow?.[m] || '';
+    if (!v || String(v).includes('DIV') || String(v).includes('#')) return null;
+    return parseFloat(String(v).replace('%','')) || null;
+  });
+
+  const validAcc = accData.filter(v => v !== null);
+  const avgAcc   = validAcc.length ? validAcc.reduce((a,b)=>a+b,0)/validAcc.length : 0;
+  const totalTerlambat = terlambatData.reduce((a,b)=>a+b,0);
+
+  const kpi = KPI_ITEMS.find(k => k.code === 'D.2');
+  if (kpi) kpi.achieve = totalTerlambat === 0 ? 1.0 : Math.max(0, avgAcc / 100);
+
+  document.getElementById('denda-info').className = totalTerlambat === 0 ? 'info-box' : 'warn-box';
+  document.getElementById('denda-info').innerHTML = `Target: <strong>0 keterlambatan dokumen</strong>. Total keterlambatan YTD: <strong>${totalTerlambat}</strong>. Rata-rata accuracy: <strong>${avgAcc.toFixed(1)}%</strong> ${totalTerlambat===0?'✅ Tidak ada keterlambatan!':'⚠️ Ada keterlambatan perlu ditindaklanjuti'}.`;
+
+  if (CHARTS.dendaChart) CHARTS.dendaChart.destroy();
+  CHARTS.dendaChart = new Chart(document.getElementById('dendaChart'), {
+    type: 'bar',
+    data: {
+      labels: monthsID,
+      datasets: [
+        { label:'Jumlah Dokumen', data: unitData, backgroundColor:'#1a56db', borderRadius:4, borderSkipped:false },
+        { label:'Terselesaikan', data: selesaiData, backgroundColor:'#0e7a4a', borderRadius:4, borderSkipped:false },
+        { label:'Keterlambatan', data: terlambatData, backgroundColor: terlambatData.map(v=>v>0?'#b91c1c':'rgba(0,0,0,0.05)'), borderRadius:4, borderSkipped:false },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'top', labels:{ font:{size:11}, usePointStyle:true } } },
+      scales:{
+        y:{ min:0, ticks:{ stepSize:1, font:{size:10} }, grid:{color:'rgba(0,0,0,0.05)'} },
+        x:{ ticks:{ font:{size:10} }, grid:{display:false} }
+      }
+    }
+  });
+
+  document.getElementById('denda-head').innerHTML = `<th>Keterangan</th>${monthsID.map(m=>`<th>${m}</th>`).join('')}`;
+  document.getElementById('denda-tbody').innerHTML = rows.map(r => {
+    const isAcc = (r['Keterangan']||'').toLowerCase().includes('accuracy');
+    const cells = months.map(m => {
+      const v = r[m] || '';
+      const isErr = String(v).includes('DIV') || String(v).includes('#');
+      return `<td style="color:${isErr?'var(--text3)':'var(--text)'};${isAcc?'font-weight:600;color:#0e7a4a;':''}">${isErr?'–':v||'–'}</td>`;
+    }).join('');
+    return `<tr><td style="${isAcc?'font-weight:600;':''}">${r['Keterangan']||'–'}</td>${cells}</tr>`;
+  }).join('');
+
+  updateOverall(); renderSummary();
 }
 
 // =====================================================
